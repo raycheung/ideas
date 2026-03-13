@@ -44,6 +44,21 @@ Currying and functional composition are strongly preferred over inheritance-heav
 
 The desired qualities are **lean abstraction, composable transformations, scalable code through function combination, and dataflow-oriented design**. A key reference point here is **Clojure's transducers** — composable transformation pipelines that are decoupled from their input source and output target, allowing the same transformation logic to work uniformly across sequences, channels, or any other reducible context.
 
+```clojure
+;; A transducer is just a function — it holds no state and knows nothing
+;; about where data comes from or where it goes.
+(def xf
+  (comp
+    (filter odd?)
+    (map #(* % %))))
+
+;; The same xf works unchanged across completely different execution contexts:
+(transduce xf + [1 2 3 4 5])          ;; => 35  (reduce over a vector)
+(into [] xf [1 2 3 4 5])              ;; => [1 9 25]  (build a vector)
+(sequence xf [1 2 3 4 5])             ;; => (1 9 25)  (lazy sequence)
+(chan 10 xf)                          ;; core.async channel — same xf, async pipeline
+```
+
 OOP can express composition, but usually with more structural overhead: object identity becomes entangled with behavior, abstraction accumulates through wrappers, interfaces, and lifecycle coupling, and reuse becomes more indirect and ceremonious.
 
 Currying and functional composition scale more cleanly because behavior can be built incrementally from smaller functions, abstractions stay close to data transformation, and composition remains lean instead of being mediated through object structure.
@@ -68,7 +83,7 @@ This matters because correctness then becomes the contract of the running system
 
 ## 5. Secondary concerns
 
-The following matter, but clearly less than the priorities above: pattern matching, strongly typed collections and generics, error handling style including monadic or composable forms, algebraic data types, static or dynamic typing, and strength of type enforcement.
+The following matter, but clearly less than the priorities above: pattern matching, strongly typed collections and generics, error handling style including monadic or composable forms, algebraic data types, polymorphism for code sharing, static or dynamic typing, and strength of type enforcement.
 
 Specifically for dynamic vs static typing, both of the following are acceptable: **strongly typed while dynamic**, or **strongly statically typed during development, with inference strong enough that typing does not become practical friction**. In other words, typing is welcome if it improves correctness in practice, but not if it adds ceremony without proportional value.
 
