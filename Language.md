@@ -38,7 +38,7 @@ This is foundational, not a minor convenience. It is one of the main enablers of
 
 ---
 
-## 3. Function-first composition over object-oriented structure
+## 3. Function-first composition and dataflow
 
 Functional composition and currying are strongly preferred over inheritance-heavy or composition-heavy object-oriented design. The core ideal is that behavior is assembled by combining small, stateless functions — not by structuring objects with embedded state and lifecycle.
 
