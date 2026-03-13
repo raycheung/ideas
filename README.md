@@ -1,0 +1,2 @@
+# ideas
+📑Place for thoughts
