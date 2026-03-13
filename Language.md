@@ -2,9 +2,9 @@
 
 The following concerns are listed in priority order, from most important to least important.
 
-## 1. Concurrency model is the top priority
+## 1. Concurrency: the primary design concern
 
-Concurrency is the primary design concern. It shapes the architecture of the system, not merely be a runtime facility layered on top.
+Concurrency is the primary design concern. It shapes the architecture of the system, rather than merely being a runtime facility layered on top.
 
 The concern is not about execution primitives alone, such as goroutines, coroutines, green threads, fibers, or thread pools. Those only describe how work runs.
 
@@ -26,7 +26,7 @@ A preferred concurrent state shape follows naturally from this: mutations flow t
 
 ---
 
-## 2. Persistent data structures are a major requirement
+## 2. Persistent immutable data structures
 
 The ideal language should provide **persistent immutable data structures** as a core capability, especially maps and sets.
 
@@ -38,15 +38,16 @@ This is foundational, not a minor convenience. It is one of the main enablers of
 
 ---
 
-## 3. Functional composition is preferred over OOP-style structure
+## 3. Function-first composition over object-oriented structure
 
-Currying and functional composition are strongly preferred over inheritance-heavy or composition-heavy object-oriented design.
+Functional composition and currying are strongly preferred over inheritance-heavy or composition-heavy object-oriented design. The core ideal is that behavior is assembled by combining small, stateless functions — not by structuring objects with embedded state and lifecycle.
 
-The desired qualities are **lean abstraction, composable transformations, scalable code through function combination, and dataflow-oriented design**. A key reference point here is **Clojure's transducers** — composable transformation pipelines that are decoupled from their input source and output target, allowing the same transformation logic to work uniformly across sequences, channels, or any other reducible context.
+The clearest expression of this is **Clojure's transducers** — composable transformation pipelines that are fully decoupled from their input source and output target, so the same transformation logic runs unchanged across sequences, channels, or any reducible context.
 
 ```clojure
 ;; A transducer is just a function — it holds no state and knows nothing
 ;; about where data comes from or where it goes.
+;; With comp, transformations apply left-to-right: filter runs first, then map.
 (def xf
   (comp
     (filter odd?)
@@ -69,7 +70,7 @@ The preference is therefore not anti-abstraction, but a preference for **functio
 
 ---
 
-## 4. Correctness should come from specifications
+## 4. Specification-driven correctness
 
 Correctness matters, but the ideal route is not primarily through larger piles of unit tests.
 
@@ -95,4 +96,4 @@ For all of the reasons above, **Clojure is the closest existing candidate** to b
 
 It comes closest because it combines **excellent concurrency semantics including CSP, native persistent immutable data structures, function-first composition rooted from Lisp, transducer-style dataflow, and spec-oriented correctness modeling** in a way that already feels coherent rather than glued together forcefully.
 
-It also has a strong practical advantage: being a JVM language with **full Java interoperability**, which provides a very strong deployment and integration model to one of the largest ecosystem without giving up Clojure's core language qualities.
+It also has a strong practical advantage: being a JVM language with **full Java interoperability**, which provides a very strong deployment and integration model to one of the largest ecosystems without giving up Clojure's core language qualities.
