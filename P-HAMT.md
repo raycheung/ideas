@@ -12,15 +12,15 @@ The Persistent Hash-Array Mapped Trie — P-HAMT — represents one of the clear
 
 ## 2. The Universality of Maps
 
-Every programming language has a map. Python calls it a `dict`. JavaScript ships it as a built-in `Map` or as the humble plain object. Java has `HashMap`. C# has `Dictionary`. Clojure treats it as a core value type. Rust provides `HashMap` in its standard library.
+Every programming language has one or many maps. Python calls it a `dict`. JavaScript ships it as a built-in `Map` or as the humble plain object. Java and C# both start with simpler general-purpose maps — `HashMap` and `Dictionary` respectively — and then provide locked concurrent counterparts: `ConcurrentHashMap` and `ConcurrentDictionary`. Rust provides an immutable-safe `HashMap` in its standard library, where ownership semantics prevent data races by construction. Clojure, finally, treats a persistent immutable hash-map as a core value type, building the strongest concurrency guarantees directly into the structure itself.
 
-The use cases are everywhere: caching and memoization, configuration management, routing tables, session stores, event dispatch, index structures, and in-memory query results. Whenever a program needs to associate a key with a value and retrieve it efficiently, a map is the natural tool.
+The use cases are everywhere: caching and memoization, configuration management, routing tables, session stores, event dispatch, index structures, in-memory query results, and even a wholistic in-memory data grid built entirely around a map as its core storage primitive. Whenever a program needs to associate a key with a value and retrieve it efficiently, a map is the natural tool.
 
-What makes the map special is not just its utility — it is its generality. The same interface, keyed access by value, appears in contexts ranging from database record lookup to HTTP header parsing. The map abstraction is universal enough to serve as a backbone for reasoning about structured state at nearly every layer of a system.
+What makes the map special is not just its utility — it is its generality. The same interface, keyed access by value, appears in contexts ranging from database record lookup to HTTP header parsing. In object-oriented programming, objects themselves are essentially maps: a collection of named fields mapping string keys to values, which is why languages like JavaScript and Python can treat plain objects and dicts as maps interchangeably. The map abstraction is universal enough to serve as a backbone for reasoning about structured state at nearly every layer of a system.
 
 However, the fact that every language has a map does not mean every map is equivalent. The universality of the interface conceals significant variation in how different implementations behave under concurrent access, under structural evolution, and under memory pressure. Understanding those differences — and what drives them — is what separates a developer who uses maps from one who designs systems around them.
 
-P-HAMT emerges as the answer to a particular set of modern demands: how to build a map that is immutable by default, structurally efficient, and safe for parallel access without locks.
+P-HAMT emerges as the answer to a particular set of modern demands: how to build a map that is immutable by default, structurally efficient, and safe for parallel access without locks and without contention.
 
 ---
 
