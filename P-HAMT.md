@@ -28,23 +28,25 @@ P-HAMT emerges as the answer to a particular set of modern demands: how to build
 
 Looking across the language landscape, map implementations cluster into recognizable categories, each reflecting different priorities.
 
-### Dynamic, Mutable Maps: Python and JavaScript
+### Open Mutable Maps: Python and JavaScript
 
-Python's `dict` and JavaScript's `Map` and plain objects are dynamic, mutable, and convenient. They grow and shrink at runtime, accept heterogeneous keys and values, and require no ceremony to use. For scripting, quick prototyping, and single-threaded workloads, they are excellent.
+Python's `dict` and JavaScript's `Map` and plain objects are mutable and convenient. They grow and shrink at runtime, accept heterogeneous keys and values, and require no ceremony to use. For scripting, quick prototyping, and single-threaded workloads, they are excellent.
 
-The problem emerges under concurrency. Python's Global Interpreter Lock (GIL) sidesteps some multi-threading issues by limiting true parallelism, but it does not make mutation safe. JavaScript's event loop model keeps most operations single-threaded, which avoids data races by design rather than by correctness. Neither language's map is designed for safe concurrent mutation. They are not built for parallel-first systems.
+The problem emerges under concurrency. Historically, Python's Global Interpreter Lock (GIL) prevented true parallelism and inadvertently masked some mutation hazards; the newer free-threaded direction in Python 3.13+ removes the GIL and instead moves toward individual internal locking on objects — making thread safety an explicit, per-operation concern rather than a global side effect. JavaScript's event loop model keeps most operations single-threaded, which avoids data races by design rather than by correctness. Neither language's map is designed for safe concurrent mutation. They are not built for parallel-first systems.
 
-### Static, Locking Maps: Java and C#
+### Locking Maps: Java and C#
 
 Java's `ConcurrentHashMap` and C#'s `ConcurrentDictionary` address the concurrency problem directly. Both are thread-safe by design, using internal locking mechanisms — bucket-level or segment-level — to coordinate concurrent reads and writes. They are mature, widely used, and correct in the sense that they avoid data corruption.
 
 The cost is performance under high contention. Lock acquisition has overhead, and in systems with many concurrent writers, that overhead accumulates. More subtly, locking maps remain mutable. Every mutation changes the shared structure in place, which means all readers see the new state immediately. There is no concept of a stable snapshot; callers must reason about mutation timing and visibility explicitly. These maps are safe but not persistent.
 
-### Immutability-First: F#, Rust, and Clojure
+### Immutable-First Maps: F# and Rust
 
 F# ships with `Map` as a persistent, immutable structure in its standard library. Rust's `HashMap` in the standard library is mutable but controlled through ownership and borrowing, making mutation explicit and race conditions a compile-time error rather than a runtime failure. Both languages push toward correctness through structural or type-level guarantees.
 
-Clojure goes further. Its hash-map is persistent and immutable by default, not as an add-on or a separate variant, but as the foundational design. Every modification produces a new version of the map; the original remains unchanged. Concurrent readers can hold references to older versions without any risk of seeing an inconsistent intermediate state, because no such state is ever created. This is P-HAMT in practice.
+### Persistent Immutable Maps: Clojure
+
+Clojure's hash-map is persistent and immutable by default, not as an add-on or a separate variant, but as the foundational design. Every modification produces a new version of the map; the original remains unchanged. Concurrent readers can hold references to older versions without any risk of seeing an inconsistent intermediate state, because no such state is ever created. This is P-HAMT in practice.
 
 ---
 
