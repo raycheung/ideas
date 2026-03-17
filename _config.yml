@@ -1,0 +1,15 @@
+title: Ideas
+description: A place for thoughts and ideas
+theme: minima
+
+minima:
+  skin: classic
+
+author:
+  name: raycheung
+
+show_excerpts: true
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
