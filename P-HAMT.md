@@ -42,7 +42,7 @@ The cost is performance under high contention. Lock acquisition has overhead, an
 
 ### Immutable-First Maps: F# and Rust
 
-F# ships with `Map` as an immutable structure in its standard library. Rust's `HashMap` in the standard library is mutable but controlled through ownership and borrowing, making mutation explicit and race conditions a compile-time error rather than a runtime failure. Both languages push toward correctness through structural or type-level guarantees.
+F# ships with `Map` as an immutable structure in its standard library. Rust approaches correctness differently: its `HashMap` is mutable, but the language's ownership and borrowing rules enforce at compile time that only one mutable reference to a value can exist at a time. This is not runtime locking — it is structural exclusivity. Unlike Java and C# where concurrent access is managed through internal locks at runtime, Rust prevents unsafe concurrent access before the program ever runs. Values in Rust are immutable by default, and opting into mutability is an explicit decision. Both F# and Rust push toward correctness through structural or type-level guarantees rather than runtime coordination.
 
 ### Persistent Immutable Maps: Clojure
 
@@ -85,6 +85,8 @@ The shallow tree also improves **cache locality**. Traversing a small number of 
 ### Comparing to Lock-Based Alternatives
 
 `ConcurrentHashMap` and `ConcurrentDictionary` scale reasonably well under moderate concurrency, but their performance degrades as write contention increases. Writers serialize on shared segments or buckets, and all modifications mutate shared state. The more contention, the more time threads spend waiting rather than working.
+
+Both collections do optimize specifically for readers. Java's `ConcurrentHashMap` (since Java 8) allows reads to proceed without acquiring any lock in most cases — internal nodes are marked `volatile`, so readers observe consistent state without blocking writers. C#'s `ConcurrentDictionary` takes a similar approach: read operations acquire only a per-bucket read lock briefly or avoid locking altogether for non-resizing reads, allowing many concurrent readers to proceed in parallel without contending with each other. These reader-friendly optimizations make reads fast and largely non-blocking, but writes still require exclusive access to the affected bucket or segment, and structural changes such as resizing impose broader synchronization.
 
 P-HAMT sidesteps this entirely. Writes are non-destructive. Old versions are never invalidated. A writer never blocks a reader. The cost of a write is the allocation of a small number of new nodes — bounded by the tree's depth — and the construction of a new root. This model scales naturally with the number of concurrent writers, because they do not interfere with each other in the same way.
 
