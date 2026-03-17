@@ -42,7 +42,7 @@ The cost is performance under high contention. Lock acquisition has overhead, an
 
 ### Immutable-First Maps: F# and Rust
 
-F# ships with `Map` as a persistent, immutable structure in its standard library. Rust's `HashMap` in the standard library is mutable but controlled through ownership and borrowing, making mutation explicit and race conditions a compile-time error rather than a runtime failure. Both languages push toward correctness through structural or type-level guarantees.
+F# ships with `Map` as an immutable structure in its standard library. Rust's `HashMap` in the standard library is mutable but controlled through ownership and borrowing, making mutation explicit and race conditions a compile-time error rather than a runtime failure. Both languages push toward correctness through structural or type-level guarantees.
 
 ### Persistent Immutable Maps: Clojure
 
