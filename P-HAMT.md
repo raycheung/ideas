@@ -52,7 +52,7 @@ Clojure's hash-map is persistent and immutable by default, not as an add-on or a
 
 ## 4. The Persistent Advantage: Concurrency, Structure, and Performance
 
-The defining characteristic of P-HAMT is **persistence**: the property that every modification produces a new version of the structure while the previous version remains valid and accessible. This is distinct from copying. Creating a new version does not mean duplicating the entire map.
+The defining characteristic of P-HAMT is **persistence**: every modification produces a new version of the structure while the previous version remains valid and accessible — this is not copying, and creating a new version does not mean duplicating the entire map.
 
 ### Parallelism Without Locks
 
@@ -62,23 +62,21 @@ In a mutable map protected by locks, every read that might observe an in-progres
 
 Both collections do optimize specifically for readers. Java's `ConcurrentHashMap` (since Java 8) allows reads to proceed without acquiring any lock in most cases — internal nodes are marked `volatile`, so readers observe consistent state without blocking writers. C#'s `ConcurrentDictionary` takes a similar approach: read operations acquire only a per-bucket read lock briefly or avoid locking altogether for non-resizing reads, allowing many concurrent readers to proceed in parallel without contending with each other. These reader-friendly optimizations make reads fast and largely non-blocking, but writes still require exclusive access to the affected bucket or segment, and structural changes such as resizing impose broader synchronization.
 
-In a persistent map, readers never contend with writers at all. A reader holds a reference to a version. That version will never change. The writer produces a new version independently. No coordination is required between them. This is not a workaround or an approximation — it is the natural result of immutability applied at the data structure level.
-
-P-HAMT sidesteps this entirely. Writes are non-destructive. Old versions are never invalidated. A writer never blocks a reader. The cost of a write is the allocation of a small number of new nodes — bounded by the tree's depth — and the construction of a new root. This model scales naturally with the number of concurrent writers, because they do not interfere with each other in the same way.
+P-HAMT eliminates this problem entirely. A writer never modifies an existing version — it allocates a small number of new nodes along the affected path and constructs a new root, leaving the previous version intact. Readers hold a reference to a specific version and never need to coordinate with writers or other readers. A writer never blocks a reader. Concurrent writers similarly do not interfere with each other, because each produces its own new version independently. This is not a workaround — it is the natural result of immutability applied at the data structure level.
 
 This property makes P-HAMT a natural fit for parallel systems, event-sourced architectures, and any context where multiple agents need stable views of shared state.
 
 ### Path-Sharing
 
-P-HAMT achieves persistence through **structural sharing**, also called path-sharing. A P-HAMT is a trie — a tree structure where each path from root to leaf corresponds to a key. When a modification is made, only the nodes along the path affected by that change are replaced. All other parts of the tree are reused directly. The new version and the old version share most of their structure.
+Path-sharing is what makes P-HAMT's persistence practical. A P-HAMT is a trie — a tree structure where each path from root to leaf corresponds to a key. When a modification is made, only the nodes along the affected path are replaced; all other nodes are reused directly by the new version.
 
 This is fundamentally different from copy-on-write. Copy-on-write creates a full copy of a structure before modifying it. For large maps, this is expensive in both memory and time. Path-sharing creates only as many new nodes as the depth of the affected path, which for a P-HAMT is logarithmically small. The cost of a modification is proportional to the depth of the tree, not its size.
 
-The practical effect is dramatic. A system can maintain many versions of a map simultaneously — snapshots of state at different points in time — with minimal memory overhead, because all those versions share most of their content. Concurrent readers can safely hold references to older versions with no locks required, because nothing is mutated. There is no contention.
+The practical effect is significant. A system can maintain many versions of a map simultaneously — each a complete and consistent snapshot at a point in time — with minimal memory overhead, because all those versions share most of their structure. Each reader holds a reference to a snapshot and works from it entirely at their own pace: no locking, no coordination with writers, no interference from other readers. That snapshot is valid and complete for the reader's purposes regardless of how many new versions have been produced since they obtained it.
 
 ### The log₃₂ Optimization
 
-A trie's depth determines the cost of every operation. A deep trie with many levels requires traversing many nodes for each lookup or update. Clojure's P-HAMT implementation uses a branching factor of 32, meaning each internal node holds up to 32 children. With a branching factor of 32, the height of the trie grows as log₃₂(n), where n is the number of entries.
+A trie's depth determines the cost of every operation. A deep trie with many levels requires traversing many nodes for each lookup or update. Clojure's P-HAMT uses a branching factor of 32: each internal node holds up to 32 children. The choice of 32 is deliberate — each node tracks which of its 32 slots are populated using a single 32-bit integer as a **bitmap**, with one bit per slot. Only populated children are stored, in a compact array, and the position of any child is computed in O(1) using a bitwise popcount operation. This keeps each node both small in memory and fast to traverse. A higher branching factor would require a wider bitmap and larger node arrays, eroding these benefits; 32 was chosen to align with the natural width of a machine word while keeping nodes compact. With this branching factor, the trie height grows as log₃₂(n), where n is the number of entries.
 
 For practical collection sizes, log₃₂(n) stays very small. A map with one billion entries has a maximum trie depth of around six. For the sizes encountered in most real applications — tens of thousands to hundreds of millions of entries — the trie depth is effectively constant. This gives P-HAMT its nearly O(1) performance characteristic for lookup, insertion, and deletion.
 
