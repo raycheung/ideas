@@ -50,9 +50,23 @@ Clojure's hash-map is persistent and immutable by default, not as an add-on or a
 
 ---
 
-## 4. The Persistent Advantage
+## 4. The Persistent Advantage: Concurrency, Structure, and Performance
 
 The defining characteristic of P-HAMT is **persistence**: the property that every modification produces a new version of the structure while the previous version remains valid and accessible. This is distinct from copying. Creating a new version does not mean duplicating the entire map.
+
+### Parallelism Without Locks
+
+In a mutable map protected by locks, every read that might observe an in-progress write must either acquire the lock or accept the possibility of inconsistent reads. Writers block other writers. Under high concurrency, the cost of lock acquisition becomes a bottleneck.
+
+`ConcurrentHashMap` and `ConcurrentDictionary` scale reasonably well under moderate concurrency, but their performance degrades as write contention increases. Writers serialize on shared segments or buckets, and all modifications mutate shared state. The more contention, the more time threads spend waiting rather than working.
+
+Both collections do optimize specifically for readers. Java's `ConcurrentHashMap` (since Java 8) allows reads to proceed without acquiring any lock in most cases — internal nodes are marked `volatile`, so readers observe consistent state without blocking writers. C#'s `ConcurrentDictionary` takes a similar approach: read operations acquire only a per-bucket read lock briefly or avoid locking altogether for non-resizing reads, allowing many concurrent readers to proceed in parallel without contending with each other. These reader-friendly optimizations make reads fast and largely non-blocking, but writes still require exclusive access to the affected bucket or segment, and structural changes such as resizing impose broader synchronization.
+
+In a persistent map, readers never contend with writers at all. A reader holds a reference to a version. That version will never change. The writer produces a new version independently. No coordination is required between them. This is not a workaround or an approximation — it is the natural result of immutability applied at the data structure level.
+
+P-HAMT sidesteps this entirely. Writes are non-destructive. Old versions are never invalidated. A writer never blocks a reader. The cost of a write is the allocation of a small number of new nodes — bounded by the tree's depth — and the construction of a new root. This model scales naturally with the number of concurrent writers, because they do not interfere with each other in the same way.
+
+This property makes P-HAMT a natural fit for parallel systems, event-sourced architectures, and any context where multiple agents need stable views of shared state.
 
 ### Path-Sharing
 
@@ -62,19 +76,7 @@ This is fundamentally different from copy-on-write. Copy-on-write creates a full
 
 The practical effect is dramatic. A system can maintain many versions of a map simultaneously — snapshots of state at different points in time — with minimal memory overhead, because all those versions share most of their content. Concurrent readers can safely hold references to older versions with no locks required, because nothing is mutated. There is no contention.
 
-### Parallelism Without Locks
-
-In a mutable map protected by locks, every read that might observe an in-progress write must either acquire the lock or accept the possibility of inconsistent reads. Writers block other writers. Under high concurrency, the cost of lock acquisition becomes a bottleneck.
-
-In a persistent map, readers never contend with writers at all. A reader holds a reference to a version. That version will never change. The writer produces a new version independently. No coordination is required between them. This is not a workaround or an approximation — it is the natural result of immutability applied at the data structure level.
-
-This property makes P-HAMT a natural fit for parallel systems, event-sourced architectures, and any context where multiple agents need stable views of shared state.
-
----
-
-## 5. Optimizations That Shine
-
-### The log₃₂ Optimization in Clojure
+### The log₃₂ Optimization
 
 A trie's depth determines the cost of every operation. A deep trie with many levels requires traversing many nodes for each lookup or update. Clojure's P-HAMT implementation uses a branching factor of 32, meaning each internal node holds up to 32 children. With a branching factor of 32, the height of the trie grows as log₃₂(n), where n is the number of entries.
 
@@ -82,31 +84,23 @@ For practical collection sizes, log₃₂(n) stays very small. A map with one bi
 
 The shallow tree also improves **cache locality**. Traversing a small number of nodes to reach a value means fewer cache misses compared to deep trees or structures that chase pointers across distant memory locations. The 32-way branching fits well with hardware cache line sizes, making the data structure friendlier to modern CPU memory hierarchies than alternatives with smaller branching factors.
 
-### Comparing to Lock-Based Alternatives
-
-`ConcurrentHashMap` and `ConcurrentDictionary` scale reasonably well under moderate concurrency, but their performance degrades as write contention increases. Writers serialize on shared segments or buckets, and all modifications mutate shared state. The more contention, the more time threads spend waiting rather than working.
-
-Both collections do optimize specifically for readers. Java's `ConcurrentHashMap` (since Java 8) allows reads to proceed without acquiring any lock in most cases — internal nodes are marked `volatile`, so readers observe consistent state without blocking writers. C#'s `ConcurrentDictionary` takes a similar approach: read operations acquire only a per-bucket read lock briefly or avoid locking altogether for non-resizing reads, allowing many concurrent readers to proceed in parallel without contending with each other. These reader-friendly optimizations make reads fast and largely non-blocking, but writes still require exclusive access to the affected bucket or segment, and structural changes such as resizing impose broader synchronization.
-
-P-HAMT sidesteps this entirely. Writes are non-destructive. Old versions are never invalidated. A writer never blocks a reader. The cost of a write is the allocation of a small number of new nodes — bounded by the tree's depth — and the construction of a new root. This model scales naturally with the number of concurrent writers, because they do not interfere with each other in the same way.
-
 ---
 
-## 6. Typing Myths and Misconceptions
+## 5. Typing Myths and Misconceptions
 
 A recurring assumption in developer communities is that static or strongly typed languages produce better data structures, whether in terms of performance, safety, or correctness. This assumption does not hold up under examination.
 
-Consider the evidence: Clojure, a dynamically typed language, provides one of the most sophisticated map implementations in widespread use. Python, also dynamically typed, has a `dict` backed by a well-optimized hash table that outperforms many statically typed alternatives for common workloads. Java's `ConcurrentHashMap`, from a statically typed language, uses locking and remains mutable — with all the concurrency complexity that entails.
+Consider Python, C#, and Clojure side by side. Python is dynamically typed; its `dict` delivers O(1) average-case lookup and insertion backed by a highly optimized open-addressing hash table. C# is statically typed; its `Dictionary<K, V>` delivers the same O(1) average complexity — functionally identical to Python's `dict` in performance, with compile-time type enforcement on keys and values added on top. The type system adds contract checking, but it does not improve the underlying data structure. Both are mutable, neither is thread-safe by default, and both face the same concurrency hazards under parallel access. The difference in type discipline made no difference to what matters at runtime.
 
-Type systems enforce contracts at compile time or runtime. They help catch incorrect key and value types before or during execution. These are genuine benefits. But a type system does not determine how a map handles concurrent access, how it shares structure across versions, how it uses memory, or what its asymptotic complexity is. Those properties come from the algorithms and data structures chosen by the implementation, not from the type discipline of the surrounding language.
+Clojure, by contrast, is dynamically typed — yet its persistent hash-map surpasses both for concurrent workloads. It achieves effectively O(1) performance through the log₃₂ branching factor, provides full thread safety without any locks, and gives every reader a stable snapshot with no coordination required. These properties have nothing to do with Clojure's type system. They come entirely from P-HAMT's algorithmic design.
 
-The map that serves you best in a concurrent, parallel-first system is not the one whose language has the strongest type checker. It is the one whose designers chose persistence, structural sharing, and immutability as foundational properties. The decision is algorithmic, not typological.
+Type systems enforce contracts at compile time or runtime. They help catch incorrect key and value types before or during execution. These are genuine benefits. But the properties that determine a map's fitness for concurrent systems — whether modifications are non-destructive, whether structure is shared across versions, whether readers can proceed without locking — are entirely independent of whether the surrounding language is statically or dynamically typed. A stronger type checker does not produce a more concurrent data structure. That distinction belongs to the algorithm, not the language.
 
 ---
 
-## 7. Hash-Set vs. Hash-Map Complexity
+## 6. Hash-Set vs. Hash-Map Complexity
 
-A hash-set and a hash-map are often treated as distinct structures with independent complexity profiles, but they are fundamentally the same. A hash-set is a hash-map with no associated value — a map where the key is the only entry, and membership is the only query. Every algorithm, every optimization, and every structural property of a hash-map applies identically to a hash-set.
+A hash-set and a hash-map share identical performance characteristics — O(1) average-case lookup, insertion, and deletion — because they are fundamentally the same data structure. A hash-set is a hash-map with no associated value: a map where the key is the only entry, and membership is the only query. Every algorithm, every optimization, and every structural property of a hash-map applies identically to a hash-set.
 
 This equivalence is more than a curiosity. It clarifies how to think about the design space. A hash-set is not a simpler data structure than a hash-map. It is a hash-map operating in a degenerate case. The hashing, bucketing, collision handling, and structural properties are identical.
 
@@ -116,7 +110,7 @@ The broader point is that P-HAMT synthesizes several distinct concepts: the key-
 
 ---
 
-## 8. Designing the "Right" Map
+## 7. Designing the "Right" Map
 
 When choosing or designing a map for a system, the right questions to ask are not about the type system of the language. They are about the operational properties the system requires.
 
@@ -130,7 +124,7 @@ For architects and developers building systems where maps sit at the center — 
 
 ---
 
-## 9. Conclusion
+## 8. Conclusion
 
 Maps are foundational to programming. They appear in almost every system, at almost every layer, serving as the backbone of associative reasoning in code. But the map as an interface conceals significant variation in how different implementations behave, and those differences matter in ways that compound across a system.
 
