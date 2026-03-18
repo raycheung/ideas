@@ -1,4 +1,7 @@
-# 💡 Ideal Language
+---
+layout: page
+title: "💡 Ideal Language"
+---
 
 The following concerns are listed in priority order, from most important to least important.
 

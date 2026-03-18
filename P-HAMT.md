@@ -1,4 +1,7 @@
-# P-HAMT: Why Thoughtful Data Structure Design Powers System Architecture
+---
+layout: page
+title: "P-HAMT: Why Thoughtful Data Structure Design Powers System Architecture"
+---
 
 ## 1. Introduction
 
